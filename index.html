@@ -522,6 +522,14 @@
 
     document.getElementById("cosmicForm").addEventListener("submit", async function (e) {
       e.preventDefault();
+
+       // Validacion si se selecciono ciudad de la lista y lat y lon tienen valor
+    if (!document.getElementById('lat').value || !document.getElementById('lon').value) {
+    alert("Debes seleccionar una ciudad de la lista para nacimiento.");
+    btn.disabled = false;
+    btn.textContent = 'Enviar';
+    return;
+  }
       const form = e.target;
       const data = new FormData(form);
       const file = data.get("foto");
