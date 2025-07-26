@@ -198,8 +198,8 @@
       <label for="politica">Declaro haber leído y aceptado la <a href="#" onclick="mostrarModal()">Política de
           Privacidad</a>.</label>
     </div>
-
-    <button type="submit">Enviar</button>
+    <button type="submit" id="btnEnviar">Enviar</button>
+ 
   </form>
 
   <p id="mensaje-error" style="color:red; display:none; font-weight:bold; text-align:center;">
@@ -573,93 +573,133 @@
     document.getElementById("cosmicForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-       // Validacion si se selecciono ciudad de la lista y lat y lon tienen valor
-    if (!document.getElementById('lat').value || !document.getElementById('lon').value) {
-    alert("Debes seleccionar una ciudad de la lista para nacimiento.");
-    btn.disabled = false;
-    btn.textContent = 'Enviar';
-    return;
-  }
-      const form = e.target;
-      const data = new FormData(form);
-      const file = data.get("foto");
+  /////////
 
-      // Validar tamaño de imagen si existe
-      if (file && file.size > 0) {
-        if (file.size > 1000000) {
-          alert("La imagen supera los 1000KB.");
-          return;
+  const btn=document.getElementById('btnEnviar');
+  btn.disabled=true;btn.textContent='Enviando...';
+
+  // Validacion si se selecciono ciudad de la lista y lat y lon tienen valor
+  if (!document.getElementById('lat').value || !document.getElementById('lon').value) {
+  alert("Debes seleccionar una ciudad de la lista para nacimiento.");
+  btn.disabled = false;
+  btn.textContent = 'Enviar';
+  return;
+}
+
+
+
+  const getGrupo=id=>Array.from(document.querySelectorAll(`#${id} input[type="checkbox"]:checked`))
+    .map(cb=>cb.value).filter(v=>v!=='Otro').join(', ');
+
+  const fotoFile=document.getElementById('foto').files[0];
+  const data={
+    nombre:this.nombre.value,
+    apellido:this.apellido.value,
+    nombrecc:this.nombrecc.value,
+    fecha_nac:this.fecha_nac.value,
+    hora_nac:this.hora_nac.value,
+    ciudad:this.ciudad.value,
+    provincia:this.provincia.value,
+    pais:this.pais.value,
+    lat:document.getElementById('lat').value,
+    lon:document.getElementById('lon').value,
+    ciudad_resi:this.ciudad_resi.value,
+    provincia_resi:this.provincia_resi.value,
+    pais_resi:this.pais_resi.value,
+    email:this.email.value,
+    telefono:this.telefono.value,
+    acceso:this.acceso.value,
+    colaborador:document.getElementById('nombreColaborador').value
+  };
+
+  try{
+
+    // ✅ Primer request a Make: guarda datos (sin foto)
+
+    const res=await fetch("https://hook.us2.make.com/9mk1me5mskzfc4fj8neulfc2g4hbyrij",{
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+
+    //console.log("Status:", res.status);
+    
+     if (res.ok) {
+       //const result = await res.json();
+       let result = {};
+       try {
+        result = await res.json();
+        console.log("Respuesta Make:", result);
+
+         } catch (e) {
+         console.warn("No se pudo parsear la respuesta como JSON, continuo...");
         }
+
+       if (result.error === "duplicado") {
+         document.getElementById("mensaje-error").style.display = "block";
+         return;
+       }
+
+      if (result.error === "duplicado") {
+        alert("Este registro ya existe.");
+        return;
       }
 
-      try {
-        const json = Object.fromEntries(data.entries());
+      if (result.estado === "ok" && result.id) {
+        // ✅ Si hay foto, subimos y notificamos a Make
+        if (fotoFile && fotoFile.size > 0) {
+          if (fotoFile.size > 700000) {
+            alert("La imagen supera los 700KB.");
+            return;
+          }
 
-        // Si hay imagen, subirla primero y obtener la URL
-        if (file && file.size > 0) {
-          const filename = `${data.get("nombre")}_${data.get("apellido")}_${Date.now()}.jpg`.replace(/\s+/g, "_");
-
+          const filename = `${data.nombre}_${data.apellido}_${Date.now()}.jpg`.replace(/\s+/g, "_");
           const formData = new FormData();
-          formData.append('file', file);
+          formData.append('file', fotoFile);
 
+          // Primer request a Make
+          
           const upload = await fetch(`https://amjskrqaoiuabscecmji.supabase.co/storage/v1/object/fotocc/${filename}`, {
             method: "POST",
-            headers: {
-              "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtanNrcnFhb2l1YWJzY2VjbWppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5Nzg3NDksImV4cCI6MjA2NjU1NDc0OX0.t_9h25ehDGBWGz39YmMPdeeaFyWpQcoDR0POt5Y3CXQ"
-            },
+            headers: {"Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtanNrcnFhb2l1YWJzY2VjbWppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5Nzg3NDksImV4cCI6MjA2NjU1NDc0OX0.t_9h25ehDGBWGz39YmMPdeeaFyWpQcoDR0POt5Y3CXQ"},
             body: formData
           });
 
-          if (!upload.ok) {
-            const errorText = await upload.text();
-            console.error('Upload error:', errorText);
-            alert("Error al subir la imagen: " + errorText);
-            return;
-          }
 
-          // Agregar al JSON el link final
-          json.foto = `https://amjskrqaoiuabscecmji.supabase.co/storage/v1/object/public/fotocc/${filename}`;
-        } else {
-          // Si no hay foto, asegurarse de no enviar ese campo
-          delete json.foto;
+          if (upload.ok) {
+            const fotoUrl = `https://amjskrqaoiuabscecmji.supabase.co/storage/v1/object/public/fotocc/${filename}`;
+
+            // ✅ Segundo request → Make (Escenario 2: Actualiza foto)
+
+          await fetch("https://hook.us2.make.com/6xjwiyf7hmg35cxx3vsumml7tcldyo15", {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({ id: result.id, fotoUrl })
+            });
+          }
         }
 
-        // Enviar todo el JSON (con o sin foto) a Make
-        const response = await fetch("https://hook.us2.make.com/9mk1me5mskzfc4fj8neulfc2g4hbyrij", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(json)
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-
-          if (result.error === "duplicado") {
-            document.getElementById("mensaje-error").style.display = "block";
-            return;
-          }
-
-          if (result.estado === "ok") {
-            document.getElementById("mensaje-exito").style.display = "block";
-            setTimeout(() => {
-              document.getElementById("mensaje-exito").style.display = "none";
-            }, 5000);
-            form.reset();
-            window.history.pushState("", document.title, window.location.pathname + window.location.search);
-          } else {
-            alert("Hubo un problema al guardar el formulario.");
-          }
-        } else {
-          throw new Error('Error en el envío');
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        alert("Error al procesar el formulario.");
+        // ✅ Éxito total
+        document.getElementById("mensaje-exito").style.display = "block";
+        setTimeout(() => {
+          document.getElementById("mensaje-exito").style.display = "none";
+        }, 5000);
+        this.reset();
+      } else {
+        alert("Hubo un problema al guardar el formulario.");
       }
-    });
-  </script>
+    } else {
+      throw new Error('Error en el envío');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert("Error al procesar el formulario.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar';
+  }
+ 
+});
+</script>
+  
+ 
 </body>
 
 </html>
