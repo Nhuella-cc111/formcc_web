@@ -131,6 +131,9 @@
       background-color: #e8f4f8;
       font-style: italic;
     }
+  .checkbox-item input { margin-right: 10px; width: auto; }
+  .extra-input { display: none; margin-top: 8px; }
+
   </style>
 </head>
 
@@ -445,109 +448,116 @@
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
       }
 
-      input.addEventListener('input', function () {
-        const query = this.value.trim();
-        const warning = document.getElementById(warnId);
-        selectedFromList = false;
-
-        if (query.length < 2) {
-          suggestionsDiv.style.display = 'none';
-          if (warning) warning.innerText = '';
-          return;
-        }
-
-        const normalizedQuery = normalizeString(query);
-
-        const localResults = ciudadesMundo.filter(city =>
-          normalizeString(city.ciudad).includes(normalizedQuery) ||
-          normalizeString(city.provincia).includes(normalizedQuery)
-        ).slice(0, 8);
-
-        const hasResults = localResults.length > 0;
-        showSuggestions(localResults);
-
-        if (!hasResults) {
-          fetchFromAPI(query).then(apiResults => {
-            const combinedResults = [...localResults, ...apiResults]
-              .filter((city, index, self) =>
-                index === self.findIndex(c => c.ciudad === city.ciudad && c.provincia === city.provincia)
-              )
-              .slice(0, 8);
-
-            showSuggestions(combinedResults);
-          }).catch(() => {
-            showSuggestions(localResults);
-          });
-        }
-      });
-      //////
-   async function fetchFromAPI(query) {
-    const locationIQKey = "pk.20ec11479404d168aa15199605e1bb64";
-    const openWeatherKey = "5&appid=bd5e378503939ddaee76f12ad7a97608";
-
-    // 1. Intentar con LocationIQ
-    try {
-      const urlLocationIQ = `https://us1.locationiq.com/v1/search.php?key=${locationIQKey}&q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5`;
-      const res = await fetch(urlLocationIQ);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.length > 0) {
-          return data.map(place => ({
-            ciudad: cleanCityName(place.address?.city || place.address?.town || place.display_name.split(',')[0]),
-            provincia: cleanProvinceName(place.address?.state || ''),
-            pais: place.address?.country || '',
-            lat: place.lat,
-            lon: place.lon
-          }));
-      }
+      function debounce(func, delay) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
     }
-  } catch (e) {
-    console.warn("LocationIQ falló:", e);
-  }
 
-  // 2. Intentar con OpenWeatherMap
+      //// ---> cabio y agrego ms de control de teclas
+
+      input.addEventListener('input', debounce(function () {
+       const query = this.value.trim();
+       const warning = document.getElementById(warnId);
+       selectedFromList = false;
+
+      if (query.length < 2) {
+        suggestionsDiv.style.display = 'none';
+      if (warning) warning.innerText = '';
+      return;
+    }
+
+     const normalizedQuery = normalizeString(query);
+
+     const localResults = ciudadesMundo.filter(city =>
+       normalizeString(city.ciudad).includes(normalizedQuery) ||
+       normalizeString(city.provincia).includes(normalizedQuery)
+     ).slice(0, 8);
+
+     const hasResults = localResults.length > 0;
+     showSuggestions(localResults);
+
+     if (!hasResults) {
+       fetchFromAPI(query).then(apiResults => {
+         const combinedResults = [...localResults, ...apiResults]
+           .filter((city, index, self) =>
+           index === self.findIndex(c => c.ciudad === city.ciudad && c.provincia === city.provincia)
+           )
+           .slice(0, 8);
+
+         showSuggestions(combinedResults);
+       }).catch(() => {
+         showSuggestions(localResults);
+       });
+     }
+   }, 500)); // <-- 500ms de espera después de dejar de tipear
+
+
+         //////
+//let openWeatherEnabled = true; // Para deshabilitar fallback si la key falla
+
+async function fetchFromAPI(query) {
+  const locationIQKey = "pk.20ec11479404d168aa15199605e1bb64"; // LocationIQ
+  const openWeatherKey = "5&appid=bd5e378503939ddaee76f12ad7a97608"; // OpenWeather (opcional)
+
+  // --- 1. Intentar con LocationIQ (con timeout) ---
   try {
-    const urlOWM = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=${openWeatherKey}`;
-    const res = await fetch(urlOWM);
+    const locationIQPromise = fetch(`https://us1.locationiq.com/v1/search.php?key=${locationIQKey}&q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5`);
+    const res = await Promise.race([
+      locationIQPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout LocationIQ")), 4000))
+    ]);
+
     if (res.ok) {
       const data = await res.json();
       if (data.length > 0) {
         return data.map(place => ({
-          ciudad: cleanCityName(place.name),
-          provincia: cleanProvinceName(place.state || ''),
-          pais: getCountryName(place.country),
+          ciudad: cleanCityName(place.address?.city || place.address?.town || place.display_name.split(',')[0]),
+          provincia: cleanProvinceName(place.address?.state || ''),
+          pais: place.address?.country || '',
           lat: place.lat,
           lon: place.lon
         }));
       }
     }
   } catch (e) {
-    console.warn("OpenWeatherMap falló:", e);
+    console.warn("LocationIQ falló:", e.message);
   }
 
-  return []; // Si ambas fallan
+  // --- 2. Intentar con OpenWeather solo si está habilitado ---
+  if (openWeatherEnabled && openWeatherKey) {
+    try {
+      const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=${openWeatherKey}`);
+      if (res.status === 401) {
+        console.error("OpenWeather deshabilitado por error 401 (API Key inválida)");
+        openWeatherEnabled = false; // Deshabilitar futuros intentos
+        return [];
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length > 0) {
+          return data.map(place => ({
+            ciudad: cleanCityName(place.name),
+            provincia: cleanProvinceName(place.state || ''),
+            pais: getCountryName(place.country),
+            lat: place.lat,
+            lon: place.lon
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn("OpenWeather falló:", e.message);
+    }
+  }
+
+  return []; // Ningún resultado
 }
 
 
 
-      //////
- ///     async function fetchFromAPI(query) {
- //       try {
- //        const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=bd5e378503939ddaee76f12ad7a97608`);
-//          const data = await response.json();
-//
-//          return data.map(place => ({
-//            ciudad: cleanCityName(place.name),
-//            provincia: cleanProvinceName(place.state || place.name),
-//            pais: getCountryName(place.country),
-//            lat: place.lat,
-//            lon: place.lon
-//          }));
-//        } catch (error) {
-//          console.log('API no disponible, usando solo base local');
-//          return [];
-//        }
-//      }
 
       input.addEventListener('blur', function () {
         setTimeout(() => {
