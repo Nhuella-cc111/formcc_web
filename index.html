@@ -182,7 +182,17 @@
     <input type="hidden" id="lat_resi" name="lat_resi">
     <input type="hidden" id="lon_resi" name="lon_resi">
 
-
+  <!-- Acceso -->
+    <label>Accedí a esta encuesta por:</label>
+    <select id="acceso" name="acceso" required>
+      <option value="">Selecciona...</option>
+      <option value="Instagram">Instagram</option>
+      <option value="WhatsApp">WhatsApp</option>
+      <option value="Nueva Humanidad">Nueva Humanidad</option>
+      <option value="Colaborador CC">Colaborador CC</option>
+  </select>
+  <input type="text" id="nombreColaborador" class="extra-input" placeholder="Nombre del colaborador">
+    
     <div class="checkbox-wrapper">
       <input type="checkbox" id="politica" required>
       <label for="politica">Declaro haber leído y aceptado la <a href="#" onclick="mostrarModal()">Política de
@@ -290,6 +300,12 @@
       document.getElementById("modal").style.display = "none";
     }
 
+    // Mostrar input para colaborador
+  document.getElementById('acceso').addEventListener('change', function() {
+  const val = this.value;
+  document.getElementById('nombreColaborador').style.display = (val.includes('Colaborador')) ? 'block' : 'none';
+});
+    
     // Base de datos expandida con ciudades principales del mundo
     const ciudadesMundo = [
       // Argentina
@@ -464,33 +480,22 @@
       });
 
       async function fetchFromAPI(query) {
-      try {
-       const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`;
-       const response = await fetch(url, {
-         headers: {
-           'User-Agent': 'CarnetCosmicoApp/1.0 (contacto@carnetcosmico.com)'
-         }
-       });
-       const data = await response.json();
+        try {
+          const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=bd5e378503939ddaee76f12ad7a97608`);
+          const data = await response.json();
 
-       return data.map(place => {
-         const address = place.address || {};
-         return {
-           ciudad: cleanCityName(address.city || address.town || address.village || place.display_name.split(',')[0]),
-           provincia: cleanProvinceName(address.state || ''),
-           pais: address.country || '',
-           lat: place.lat,
-           lon: place.lon
-         };
-       });
-     } catch (error) {
-       console.log('Error Nominatim, usando solo base local');
-       return [];
-     }
-   }
-
-
-
+          return data.map(place => ({
+            ciudad: cleanCityName(place.name),
+            provincia: cleanProvinceName(place.state || place.name),
+            pais: getCountryName(place.country),
+            lat: place.lat,
+            lon: place.lon
+          }));
+        } catch (error) {
+          console.log('API no disponible, usando solo base local');
+          return [];
+        }
+      }
 
       input.addEventListener('blur', function () {
         setTimeout(() => {
@@ -502,6 +507,7 @@
           }
         }, 300);
       });
+
 
       input.addEventListener('focus', function () {
         if (this.value.length >= 2) {
