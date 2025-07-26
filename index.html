@@ -478,24 +478,74 @@
           });
         }
       });
+      //////
+   async function fetchFromAPI(query) {
+    const locationIQKey = "pk.20ec11479404d168aa15199605e1bb64";
+    const openWeatherKey = "5&appid=bd5e378503939ddaee76f12ad7a97608";
 
-      async function fetchFromAPI(query) {
-        try {
-          const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=bd5e378503939ddaee76f12ad7a97608`);
-          const data = await response.json();
-
+    // 1. Intentar con LocationIQ
+    try {
+      const urlLocationIQ = `https://us1.locationiq.com/v1/search.php?key=${locationIQKey}&q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5`;
+      const res = await fetch(urlLocationIQ);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length > 0) {
           return data.map(place => ({
-            ciudad: cleanCityName(place.name),
-            provincia: cleanProvinceName(place.state || place.name),
-            pais: getCountryName(place.country),
+            ciudad: cleanCityName(place.address?.city || place.address?.town || place.display_name.split(',')[0]),
+            provincia: cleanProvinceName(place.address?.state || ''),
+            pais: place.address?.country || '',
             lat: place.lat,
             lon: place.lon
           }));
-        } catch (error) {
-          console.log('API no disponible, usando solo base local');
-          return [];
-        }
       }
+    }
+  } catch (e) {
+    console.warn("LocationIQ falló:", e);
+  }
+
+  // 2. Intentar con OpenWeatherMap
+  try {
+    const urlOWM = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=${openWeatherKey}`;
+    const res = await fetch(urlOWM);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.length > 0) {
+        return data.map(place => ({
+          ciudad: cleanCityName(place.name),
+          provincia: cleanProvinceName(place.state || ''),
+          pais: getCountryName(place.country),
+          lat: place.lat,
+          lon: place.lon
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn("OpenWeatherMap falló:", e);
+  }
+
+  return []; // Si ambas fallan
+}
+
+
+
+      //////
+ ///     async function fetchFromAPI(query) {
+ //       try {
+ //        const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=bd5e378503939ddaee76f12ad7a97608`);
+//          const data = await response.json();
+//
+//          return data.map(place => ({
+//            ciudad: cleanCityName(place.name),
+//            provincia: cleanProvinceName(place.state || place.name),
+//            pais: getCountryName(place.country),
+//            lat: place.lat,
+//            lon: place.lon
+//          }));
+//        } catch (error) {
+//          console.log('API no disponible, usando solo base local');
+//          return [];
+//        }
+//      }
 
       input.addEventListener('blur', function () {
         setTimeout(() => {
