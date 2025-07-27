@@ -180,7 +180,8 @@
     <label>Foto (JPG/PNG, máx. 700KB):</label>
     <input type="file" id="foto" name="foto" accept="image/png, image/jpeg">
     
-    
+    <!-- pregunta 3D --->
+    <label>¿Qué talento, oficio o profesión tienes para ofrecer?:</label><input type="text" name="talento">
     <!-- Campos ocultos para coordenadas -->
     <input type="hidden" id="lat" name="lat">
     <input type="hidden" id="lon" name="lon">
@@ -620,6 +621,7 @@ async function fetchFromAPI(query) {
     pais_resi:this.pais_resi.value,
     email:this.email.value,
     telefono:this.telefono.value,
+    talento:this.talento.value,
     acceso:this.acceso.value,
     colaborador:document.getElementById('nombreColaborador').value
   };
@@ -683,7 +685,7 @@ async function fetchFromAPI(query) {
           await fetch("https://hook.us2.make.com/6xjwiyf7hmg35cxx3vsumml7tcldyo15", {
               method: "POST",
               headers: {"Content-Type": "application/json"},
-              body: JSON.stringify({ id: result.id, fotoUrl })
+              body: JSON.stringify({ id: result.id, nh: "nh", fotoUrl })
             });
           }
         }
