@@ -1,0 +1,10 @@
+# Ignorar todo por defecto
+/*
+
+
+# Mantener el propio .gitignore
+!.gitignore
+!/index.html
+
+# Mantener documentación y requisitos
+!/README.md
