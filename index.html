@@ -643,6 +643,9 @@ async function fetchFromAPI(query) {
 
     const id_get = `${safeSlug(this.apellido.value)}_${this.fecha_nac.value}_${this.hora_nac.value}`;
 
+    console.log("acceso:", this.acceso?.value); // probablemente sea undefined
+    console.log("acceso real:", document.getElementById('acceso').value);
+    console.log("colaborador:",document.getElementById('nombreColaborador').value)
 
     const fotoFile=document.getElementById('foto').files[0];
     const data={
@@ -666,6 +669,7 @@ async function fetchFromAPI(query) {
       colaborador:document.getElementById('nombreColaborador').value,
       id_get: id_get, // ID único para el registro
     };
+
 
     try{
 
