@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <title>Formulario Cósmico</title>
+ 
+  <!---------------- IntlTelInput ---------->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/css/intlTelInput.css" />
   <style>
     body {
       background-color: #F8F5FC;
@@ -134,8 +137,14 @@
   .checkbox-item input { margin-right: 10px; width: auto; }
   .extra-input { display: none; margin-top: 8px; }
 
+
+
+
   </style>
 </head>
+
+<!--------IntlTelInput-------->
+<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/js/intlTelInput.min.js"></script>
 
 <body>
   <img src="https://amjskrqaoiuabscecmji.supabase.co/storage/v1/object/public/logos/isologo-CC_arcoiris.png"
@@ -196,8 +205,8 @@
       <option value="WhatsApp">WhatsApp</option>
       <option value="Nueva Humanidad">Nueva Humanidad</option>
       <option value="Colaborador CC">Colaborador CC</option>
-  </select>
-  <input type="text" id="nombreColaborador" class="extra-input" placeholder="Nombre del colaborador">
+    </select>
+    <input type="text" id="nombreColaborador" class="extra-input" placeholder="Nombre del colaborador">
     
     <div class="checkbox-wrapper">
       <input type="checkbox" id="politica" required>
@@ -588,7 +597,16 @@ async function fetchFromAPI(query) {
     const MAKE_UPLOAD_URL = "https://hook.us2.make.com/bnafik2pdvulpn8gh4zbjejxojh9e2as";
     const FORM_SECRET     = "9438e981-9990-4d45-8839-ed6158341cd6";           // genera el tuyo (ver arriba)
       
-    
+    //--------inp_telefono--
+    const telInput = document.querySelector("input[name='telefono']");
+    const iti = window.intlTelInput(telInput, {
+    initialCountry: "ar", // o auto
+    preferredCountries: ["ar", "es", "us"],
+    nationalMode: false,
+    utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/js/utils.js"
+    });
+
+   
 
     function fetchConTimeout(url, options = {}, ms = 20000) {
       const ctrl = new AbortController();
@@ -629,7 +647,9 @@ async function fetchFromAPI(query) {
     return;
   }
 
-
+    //-----------inp_telefono----
+    const numeroE164 = iti.getNumber(); // Ej: +5491134567890
+    const numeroLimpio = numeroE164.replace(/\D/g, ''); // Ej: 5491134567890
 
     function safeSlug(str) {
       return str
@@ -663,7 +683,7 @@ async function fetchFromAPI(query) {
       provincia_resi:this.provincia_resi.value,
       pais_resi:this.pais_resi.value,
       email: this.email.value,
-      telefono: this.telefono.value,
+      telefono: numeroLimpio,
       talento: this.talento.value,
       acceso: document.getElementById('acceso').value,
       colaborador:document.getElementById('nombreColaborador').value,
