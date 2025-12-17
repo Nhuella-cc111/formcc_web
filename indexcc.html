@@ -870,7 +870,8 @@
                 const data = await res.json();
                 // Esperamos: { estado: "valido", origen_id: "COM-YOGA", mensaje: "Bienvenido..." }
 
-                if (data.estado === 'valido') {
+                // VALIDACIÓN RELAJADA: Aceptamos 'valido', 'approved' (MP) o 'pendiente' (Supabase)
+                if (['valido', 'approved', 'pendiente'].includes(data.estado) || ['valido', 'approved', 'pendiente'].includes(data.status)) {
                     // EXITO: Mostramos el formulario
                     document.getElementById('ticket_usado').value = ticket;
                     document.getElementById('origen_id').value = data.origen_id || 'GENERAL';
