@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva Carnet Cósmico</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #F8F5FC;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #4a4a4a;
+        }
+
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h2 {
+            color: #A38CC6;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        button {
+            background-color: #A38CC6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background 0.3s;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background-color: #8E73B8;
+        }
+
+        .loading {
+            color: #888;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error {
+            color: #e74c3c;
+            margin-top: 15px;
+            display: none;
+            font-size: 0.9em;
+            padding: 10px;
+            background: #fdedec;
+            border-radius: 5px;
+        }
+
+        .info {
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        .price-tag {
+            font-size: 1.2em;
+            color: #27ae60;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .logo {
+            width: 80px;
+            margin-bottom: 15px;
+            border-radius: 50%;
+        }
+
+        .footer-link {
+            margin-top: 20px;
+            font-size: 0.8em;
+            display: block;
+            color: #999;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <img src="https://amjskrqaoiuabscecmji.supabase.co/storage/v1/object/public/logos/isologo-CC_arcoiris.png"
+            class="logo" alt="Logo">
+        <h2>Reserva Carnet Cósmico</h2>
+
+        <!-- PASO 1: Ingreso de Código -->
+        <div id="step-1">
+            <p class="info">Si te enviaron un <strong>código especial</strong> (Comunidad, Vendedor o Regalo), ingrésalo
+                aquí.</p>
+            <p class="info" style="font-size:0.85em">Si no tienes código, deja el campo vacío.</p>
+
+            <input type="text" id="codigoInput" placeholder="Ej: COM-YOGA o VEND-ANA">
+            <button onclick="verificarCodigo()">Continuar</button>
+        </div>
+
+        <!-- PASO 2: Confirmación y Pago -->
+        <div id="step-2" style="display:none;">
+            <p id="msg-confirmacion" style="font-weight:500; margin-bottom:15px; font-size:1.1em;"></p>
+
+            <!-- Opción ARGENTINA -->
+            <div id="opcion-ars"
+                style="display:none; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
+                <div id="precio-ars" class="price-tag"></div>
+                <button onclick="irAPagar('MP')" id="btn-pagar-mp" style="background-color: #009EE3;">Pagar con Mercado
+                    Pago (ARS)</button>
+            </div>
+
+            <!-- Opción INTERNACIONAL -->
+            <div id="opcion-usd" style="display:none; margin-bottom: 15px;">
+                <div id="precio-usd" class="price-tag"></div>
+                <button onclick="irAPagar('PP')" id="btn-pagar-pp" style="background-color: #003087;">Pagar con PayPal
+                    (USD)</button>
+            </div>
+
+            <button onclick="resetear()"
+                style="background:none; color:#999; margin-top:0px; font-weight:normal; font-size:0.9em;">Volver</button>
+        </div>
+
+        <div id="loading" class="loading">Consultando a los astros... ✨</div>
+        <div id="error" class="error"></div>
+
+        <a href="#" class="footer-link">¿Necesitas ayuda?</a>
+    </div>
+
+    <script>
+        // ---------------- CONFIGURACIÓN ----------------
+        const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/ifbbtgd7a2h9qw2ozs97gb6sa5640qgb";
+
+        // Links generales por defecto (Fallback)
+        const LINK_GRAL_MP = "https://mpago.la/1yGhQNo";
+        const PRECIO_GRAL_ARS = "$10.000 ARS";
+
+        const LINK_GRAL_PP = "https://www.google.com/";
+        const PRECIO_GRAL_USD = "10 USD";
+        // -----------------------------------------------
+
+        let linksDestino = { mp: "", pp: "" };
+
+        async function verificarCodigo() {
+            const codigo = document.getElementById('codigoInput').value.trim();
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const step1 = document.getElementById('step-1');
+
+            // Caso 1: Sin código -> Usuario General
+            if (!codigo) {
+                mostrarConfirmacion(
+                    "Entrada General",
+                    PRECIO_GRAL_ARS, LINK_GRAL_MP,
+                    PRECIO_GRAL_USD, LINK_GRAL_PP
+                );
+                return;
+            }
+
+            // Caso 2: Con código -> Consultar a Make
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            step1.style.display = 'none';
+
+            try {
+                const response = await fetch(MAKE_WEBHOOK_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ codigo: codigo })
+                });
+
+                if (!response.ok) throw new Error("Error de conexión");
+
+                const data = await response.json();
+                console.log("Respuesta Make:", data);
+                // Esperamos formato JSON: 
+                // { estado: "ok", descripcion: "...", precio_ars: "...", link_mp: "...", precio_usd: "...", link_pp: "..." }
+
+                if (data.estado === 'ok') {
+                    mostrarConfirmacion(
+                        data.descripcion,
+                        data.precio_ars, data.link_mp,
+                        data.precio_usd, data.link_pp
+                    );
+                } else {
+                    mostrarError("El código ingresado no existe o no es válido.");
+                }
+
+            } catch (e) {
+                console.error(e);
+                mostrarError("Hubo un problema al validar el código. Intenta nuevamente.");
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function mostrarConfirmacion(texto, precioArs, linkMp, precioUsd, linkPp) {
+            document.getElementById('step-1').style.display = 'none';
+            document.getElementById('step-2').style.display = 'block';
+            document.getElementById('msg-confirmacion').innerText = texto;
+
+            let hayOpcion = false;
+
+            // Configurar ARS
+            if (precioArs && linkMp) {
+                document.getElementById('opcion-ars').style.display = 'block';
+                document.getElementById('precio-ars').innerText = precioArs;
+                linksDestino.mp = linkMp;
+                hayOpcion = true;
+            } else {
+                document.getElementById('opcion-ars').style.display = 'none';
+            }
+
+            // Configurar USD
+            if (precioUsd && linkPp) {
+                document.getElementById('opcion-usd').style.display = 'block';
+                document.getElementById('precio-usd').innerText = precioUsd;
+                linksDestino.pp = linkPp;
+                hayOpcion = true;
+            } else {
+                document.getElementById('opcion-usd').style.display = 'none';
+            }
+
+            if (!hayOpcion) {
+                mostrarError("Error de configuración: No hay opciones de pago disponibles para este código.");
+            }
+        }
+
+        function irAPagar(tipo) {
+            if (tipo === 'MP' && linksDestino.mp) window.location.href = linksDestino.mp;
+            if (tipo === 'PP' && linksDestino.pp) window.location.href = linksDestino.pp;
+        }
+
+        function mostrarError(msg) {
+            const error = document.getElementById('error');
+            error.innerText = msg;
+            error.style.display = 'block';
+            document.getElementById('step-1').style.display = 'block';
+            document.getElementById('step-2').style.display = 'none';
+        }
+
+        function resetear() {
+            document.getElementById('step-1').style.display = 'block';
+            document.getElementById('step-2').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('codigoInput').value = "";
+        }
+    </script>
+
+</body>
+
+</html>
