@@ -247,8 +247,17 @@
             <input type="hidden" id="lon_resi" name="lon_resi">
 
             <!-- (Eliminado) Acceso manual reemplazado por validación de Ticket -->
-            <input type="hidden" id="acceso" name="acceso">
-            <!-- Mantenemos hidden para compatibilidad si Make lo pide -->
+            <input type="hidden" id="acceso" name="acceso_old"> <!-- Compatibilidad -->
+
+            <label>¿Cómo llegaste a nosotros?</label>
+            <select id="acceso_marketing" name="acceso_marketing">
+                <option value="Instagram">Instagram</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Colaborador">Recomendado por...</option>
+                <option value="Otro">Otro</option>
+            </select>
+            <input type="text" id="nombreColaborador" class="extra-input" placeholder="¿Quién te recomendó?">
 
             <div class="checkbox-wrapper">
                 <input type="checkbox" id="politica" required>
@@ -372,6 +381,12 @@
         function cerrarModal() {
             document.getElementById("modal").style.display = "none";
         }
+
+        // Mostrar input para colaborador/recomendador
+        document.getElementById('acceso_marketing').addEventListener('change', function () {
+            const val = this.value;
+            document.getElementById('nombreColaborador').style.display = (val.includes('Colaborador') || val.includes('Otro')) ? 'block' : 'none';
+        });
 
 
 
@@ -646,7 +661,7 @@
         setupCityAutocomplete("ciudad", "suggestions-ciudad", "provincia", "pais", "lat", "lon", "warning-ciudad");
         setupCityAutocomplete("ciudad_resi", "suggestions-resi", "provincia_resi", "pais_resi", "lat_resi", "lon_resi", "warning-resi");
 
-        const MAKE_SAVE_URL = "https://hook.us2.make.com/9mk1me5mskzfc4fj8neulfc2g4hbyrij"; // Escenario 1: guarda datos
+        const MAKE_SAVE_URL = "https://hook.us2.make.com/hg169rjfuumpnz9skz2rpcmi23451715"; // Escenario 1: guarda datos
         const MAKE_UPLOAD_URL = "https://hook.us2.make.com/bnafik2pdvulpn8gh4zbjejxojh9e2as";
         const FORM_SECRET = "9438e981-9990-4d45-8839-ed6158341cd6";           // genera el tuyo (ver arriba)
 
@@ -738,8 +753,13 @@
                 email: this.email.value,
                 telefono: numeroLimpio,
                 talento: this.talento.value,
-                acceso: document.getElementById('origen_id').value || "Ticket General", // Usamos el origen validado
-                colaborador: "", // Ya no se pide manual
+                referido_marketing: document.getElementById('acceso_marketing').value, // Input visual del usuario
+                colaborador: document.getElementById('nombreColaborador').value,
+
+                // DATA V2 (CLAVE PARA EL PROCESO)
+                ticket_usado: document.getElementById('ticket_usado').value,
+                origen_id: document.getElementById('origen_id').value,
+
                 id_get: id_get, // ID único para el registro
             };
 
@@ -813,11 +833,23 @@
                         }
                     }
 
-                    document.getElementById("mensaje-exito")?.style?.setProperty("display", "block");
-                    // Ocultar mensaje luego de 5seg?
-                    setTimeout(() => {
-                        document.getElementById("mensaje-exito")?.style?.setProperty("display", "none");
-                    }, 5000);
+
+
+                    // Estrategia V2: Reemplazo TOTAL del contenido
+                    const mainContent = document.getElementById('main-content');
+                    if (mainContent) {
+                        mainContent.innerHTML = `
+                            <div style="text-align:center; padding: 40px;">
+                                <img src="https://amjskrqaoiuabscecmji.supabase.co/storage/v1/object/public/logos/isologo-CC_arcoiris.png" width="100">
+                                <h2 style="color:#A38CC6; margin-top:20px;">¡Formulario enviado con éxito! 🌈</h2>
+                                <p style="font-size:18px; color:#555;">El Equipo CC festeja tu llegada.</p>
+                                <p style="color:#777;">En breve nos contactaremos por correo para enviar tu CC.</p>
+                                <br>
+                                <button onclick="window.location.reload()" style="background:#A38CC6; color:white; padding:15px 30px; border:none; border-radius:30px; font-size:16px; cursor:pointer;">Aceptar y Salir</button>
+                            </div>
+                        `;
+                    }
+
 
                     this.reset();
                 } else {
@@ -837,14 +869,15 @@
 
     <script>
         // URL DEL WEBHOOK DE VALIDACIÓN (ESCENARIO C)
-        console.log("por enviar a make")
+        console.log("por enviar a make");
         const MAKE_VALIDATE_TICKET_URL = "https://hook.us2.make.com/s431w6wq2jp3dmbxvygj9a5a5ule6tj4";
-        console.log("paso make:", this.MAKE_VALIDATE_TICKET_URL?.value)
+        console.log("paso make:", this.MAKE_VALIDATE_TICKET_URL?.value);
 
 
         document.addEventListener("DOMContentLoaded", async function () {
             const params = new URLSearchParams(window.location.search);
             const ticket = params.get('ticket');
+            console.log("ticket:", ticket);
 
             const overlay = document.getElementById('security-overlay');
             const title = document.getElementById('sec-title');
@@ -869,6 +902,7 @@
 
                 const data = await res.json();
                 // Esperamos: { estado: "valido", origen_id: "COM-YOGA", mensaje: "Bienvenido..." }
+                console.log("Validación ticket:", data);
 
                 // VALIDACIÓN RELAJADA: Aceptamos 'valido', 'approved' (MP) o 'pendiente' (Supabase)
                 if (['valido', 'approved', 'pendiente'].includes(data.estado) || ['valido', 'approved', 'pendiente'].includes(data.status)) {

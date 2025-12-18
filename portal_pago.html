@@ -200,14 +200,20 @@
                 // Esperamos formato JSON: 
                 // { estado: "ok", descripcion: "...", precio_ars: "...", link_mp: "...", precio_usd: "...", link_pp: "..." }
 
-                if (data.estado === 'ok') {
+                // Normalizamos el estado para evitar errores de espacios o mayúsculas
+                const status = (data.estado || "").trim().toLowerCase();
+
+                if (status === 'ok') {
                     mostrarConfirmacion(
                         data.descripcion,
                         data.precio_ars, data.link_mp,
                         data.precio_usd, data.link_pp
                     );
+                } else if (['bonificado', 'recompensa'].includes(status) && data.redirect_url) {
+                    // Flujo Directo de Bonificados y Recompensas
+                    window.location.href = data.redirect_url;
                 } else {
-                    mostrarError("El código ingresado no existe o no es válido.");
+                    mostrarError(data.mensaje || "El código ingresado no existe o no es válido.");
                 }
 
             } catch (e) {
