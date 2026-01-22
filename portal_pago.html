@@ -118,7 +118,7 @@
                 aquí.</p>
             <p class="info" style="font-size:0.85em">Si no tienes código, deja el campo vacío.</p>
 
-            <input type="text" id="codigoInput" placeholder="Ej: COM-YOGA o VEND-ANA">
+            <input type="text" id="codigoInput" placeholder="Ingresa tu codigo aqui">
             <button onclick="verificarCodigo()">Continuar</button>
         </div>
 
@@ -154,33 +154,29 @@
     <script>
         // ---------------- CONFIGURACIÓN ----------------
         const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/ifbbtgd7a2h9qw2ozs97gb6sa5640qgb";
-        
+
 
         // Links generales por defecto (Fallback)
-        const LINK_GRAL_MP = "https://mpago.la/1yGhQNo";
-        const PRECIO_GRAL_ARS = "$44.000 ARS";
+        //const LINK_GRAL_MP = "https://mpago.la/1TbSnG7";
+        //const PRECIO_GRAL_ARS = "$44.000 ARS";
 
-        const LINK_GRAL_PP = "https://www.google.com/";
-        const PRECIO_GRAL_USD = "44 USD";
+        //const LINK_GRAL_PP = "https://www.paypal.com/ncp/payment/LYJ9WRH3K4NMA";
+        //const PRECIO_GRAL_USD = "44 USD";
         // -----------------------------------------------
 
         let linksDestino = { mp: "", pp: "" };
 
         async function verificarCodigo() {
-            const codigo = document.getElementById('codigoInput').value.trim();
+            let codigo = document.getElementById('codigoInput').value.trim();
             const loading = document.getElementById('loading');
             const error = document.getElementById('error');
             const step1 = document.getElementById('step-1');
 
-            // Caso 1: Sin código -> Usuario General
+            // Caso 1: Sin código -> Usuario General (Usamos código "GENERAL" para activar flujo automático)
             if (!codigo) {
-                mostrarConfirmacion(
-                    "Entrada General",
-                    PRECIO_GRAL_ARS, LINK_GRAL_MP,
-                    PRECIO_GRAL_USD, LINK_GRAL_PP
-                );
-                return;
+                codigo = "GENERAL";
             }
+
 
             // Caso 2: Con código -> Consultar a Make
             loading.style.display = 'block';
