@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reserva Carnet Cósmico</title>
+    <title>Carnet Cósmico</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -110,21 +110,36 @@
     <div class="card">
         <img src="https://amjskrqaoiuabscecmji.supabase.co/storage/v1/object/public/logos/isologo-CC_arcoiris.png"
             class="logo" alt="Logo">
-        <h2>Reserva Carnet Cósmico</h2>
+        <h2 id="titulo-portal">Portal de Pago CC</h2>
 
-        <!-- PASO 1: Ingreso de Código -->
+        <!-- PASO 1: Ingreso de Datos y Código -->
         <div id="step-1">
-            <p class="info">Si te enviaron un <strong>código especial</strong> (Comunidad, Vendedor o Regalo), ingrésalo
-                aquí.</p>
-            <p class="info" style="font-size:0.85em">Si no tienes código, deja el campo vacío.</p>
+            <p class="info">Por favor, completa tus datos para recibir el acceso o ticket de tu compra.</p>
 
-            <input type="text" id="codigoInput" placeholder="Ingresa tu codigo aqui">
-            <button onclick="verificarCodigo()">Continuar</button>
+            <div id="seccion-datos-personales" style="margin-bottom: 20px; text-align: left;">
+                <label style="font-size: 0.9em; font-weight: bold; display: block; margin-bottom: 5px;">Tu Nombre y
+                    Apellido:</label>
+                <input type="text" id="nombreInput" placeholder="Ej: María García"
+                    style="margin-top: 5px; margin-bottom: 15px;">
+
+                <label style="font-size: 0.9em; font-weight: bold; display: block; margin-bottom: 5px;">Tu Correo
+                    Electrónico (Para accesos):</label>
+                <input type="email" id="emailInput" placeholder="ejemplo@email.com"
+                    style="margin-top: 5px; margin-bottom: 5px;">
+            </div>
+
+            <div style="padding-top: 15px; border-top: 1px dashed #ccc;">
+                <p class="info">Si tienes un <strong>código especial</strong> o de grupo, ingrésalo aquí.</p>
+                <p class="info" style="font-size:0.85em">Si no tienes código, deja el campo vacío.</p>
+                <input type="text" id="codigoInput" placeholder="Ingresa tu código (Ej: LUA-PACK)">
+            </div>
+
+            <button onclick="verificarCodigo()">Continuar al Pago</button>
         </div>
 
         <!-- PASO 2: Confirmación y Pago -->
         <div id="step-2" style="display:none;">
-            <p id="msg-confirmacion" style="font-weight:500; margin-bottom:15px; font-size:1.1em;"></p>
+            <p id="msg-confirmacion" style="display:none;"></p>
 
             <!-- Opción ARGENTINA -->
             <div id="opcion-ars"
@@ -141,6 +156,34 @@
                     (USD)</button>
             </div>
 
+            <!-- SECCIÓN TRANSFERENCIA (Oculta por defecto) -->
+            <div id="seccion-transferencia"
+                style="display:none; text-align: left; background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #ddd;">
+                <h3 style="color: #6c757d; font-size: 1.1em; margin-top: 0;">Datos Bancarios</h3>
+                <p style="font-size: 0.9em; line-height: 1.5;">
+                    <strong>Alias:</strong> carnetcosmico.mp<br>
+                    <strong>CBU:</strong> 0000003100084377917446<br>
+                    <strong>Titular:</strong> Registro Nueva Huella
+                </p>
+                <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
+
+                <p style="font-size: 0.9em; margin-bottom: 15px;">
+                    Tu Referencia Única de Pago:<br>
+                    <strong id="ref-trf-display" style="font-size: 1.2em; color: #27ae60;">TRF-XXXX</strong>
+                </p>
+
+                <label style="font-size: 0.9em; font-weight: bold; display: block; margin-bottom: 5px;">Subir
+                    Comprobante:</label>
+                <!-- Formulario de carga -->
+                <input type="file" id="archivoComprobante" accept="image/*,application/pdf" style="margin: 0 0 10px 0;">
+
+                <button onclick="enviarTransferencia()" id="btn-enviar-trf"
+                    style="background-color: #27ae60; font-size: 0.95em;">Confirmar Transferencia</button>
+
+                <button onclick="cancelarTransferencia()"
+                    style="background-color: #999; color: white; margin-top: 5px; font-size: 0.8em; padding: 8px;">Cancelar</button>
+            </div>
+
             <button onclick="resetear()"
                 style="background:none; color:#999; margin-top:0px; font-weight:normal; font-size:0.9em;">Volver</button>
         </div>
@@ -154,17 +197,30 @@
     <script>
         // ---------------- CONFIGURACIÓN ----------------
         const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/ifbbtgd7a2h9qw2ozs97gb6sa5640qgb";
-
-
-        // Links generales por defecto (Fallback)
-        //const LINK_GRAL_MP = "https://mpago.la/1TbSnG7";
-        //const PRECIO_GRAL_ARS = "$44.000 ARS";
-
-        //const LINK_GRAL_PP = "https://www.paypal.com/ncp/payment/LYJ9WRH3K4NMA";
-        //const PRECIO_GRAL_USD = "44 USD";
-        // -----------------------------------------------
+        // URL del Webhook para Transferencias (Valida Comprobante TRF)
+        const MAKE_TRANSFER_URL = "https://hook.us2.make.com/sdgcwed61sadwfd4mx5qacjd13l1paov";
 
         let linksDestino = { mp: "", pp: "" };
+        let codigoValidado = "";
+
+        // EJECUCIÓN AL CARGAR LA PÁGINA
+        window.onload = function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            const codigoURL = urlParams.get('codigo');
+
+            if (codigoURL) {
+                // Si viene por URL, pre-cargamos el input y lo inhabilitamos visualmente
+                const input = document.getElementById('codigoInput');
+                input.value = codigoURL;
+                input.readOnly = true;
+                input.style.backgroundColor = "#f0f0f0";
+
+                // Cambio dinámico de título
+                if (codigoURL.toUpperCase().includes('CURSO') || codigoURL.toUpperCase().includes('LUA')) {
+                    document.getElementById('titulo-portal').innerText = "Inscripción a Cursos / Sesiones";
+                }
+            }
+        };
 
         async function verificarCodigo() {
             let codigo = document.getElementById('codigoInput').value.trim();
@@ -172,42 +228,49 @@
             const error = document.getElementById('error');
             const step1 = document.getElementById('step-1');
 
-            // Caso 1: Sin código -> Usuario General (Usamos código "GENERAL" para activar flujo automático)
+            // Caso 1: Sin código -> Usuario General
             if (!codigo) {
                 codigo = "GENERAL";
             }
 
+            // Validar datos personales obligatorios SIEMPRE
+            let nombreUser = document.getElementById('nombreInput').value.trim();
+            let emailUser = document.getElementById('emailInput').value.trim();
 
-            // Caso 2: Con código -> Consultar a Make
+            if (!nombreUser || !emailUser || !emailUser.includes('@')) {
+                error.innerText = "Por favor, completa un Nombre y Email válidos para enviarte el acceso a tu compra.";
+                error.style.display = 'block';
+                return;
+            }
+
+            codigoValidado = codigo;
+
             loading.style.display = 'block';
             error.style.display = 'none';
             step1.style.display = 'none';
 
             try {
+                // Enviamos nombre y email a Make siempre para inyectarlos en MP/PP
                 const response = await fetch(MAKE_WEBHOOK_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ codigo: codigo })
+                    body: JSON.stringify({
+                        codigo: codigo,
+                        nombre: nombreUser,
+                        email: emailUser
+                    })
                 });
 
                 if (!response.ok) throw new Error("Error de conexión");
 
                 const data = await response.json();
                 console.log("Respuesta Make:", data);
-                // Esperamos formato JSON: 
-                // { estado: "ok", descripcion: "...", precio_ars: "...", link_mp: "...", precio_usd: "...", link_pp: "..." }
 
-                // Normalizamos el estado para evitar errores de espacios o mayúsculas
                 const status = (data.estado || "").trim().toLowerCase();
 
                 if (status === 'ok') {
-                    mostrarConfirmacion(
-                        data.descripcion,
-                        data.precio_ars, data.link_mp,
-                        data.precio_usd, data.link_pp
-                    );
+                    mostrarConfirmacion(data.descripcion, data.precio_ars, data.link_mp, data.precio_usd, data.link_pp);
                 } else if (['bonificado', 'recompensa', 'efectivo'].includes(status) && data.redirect_url) {
-                    // Flujo Directo de Bonificados y Recompensas
                     window.location.href = data.redirect_url;
                 } else {
                     mostrarError(data.mensaje || "El código ingresado no existe o no es válido.");
@@ -224,7 +287,11 @@
         function mostrarConfirmacion(texto, precioArs, linkMp, precioUsd, linkPp) {
             document.getElementById('step-1').style.display = 'none';
             document.getElementById('step-2').style.display = 'block';
-            document.getElementById('msg-confirmacion').innerText = texto;
+
+            if (texto) {
+                document.getElementById('msg-confirmacion').innerText = texto;
+                // document.getElementById('msg-confirmacion').style.display = 'block';
+            }
 
             let hayOpcion = false;
 
@@ -233,6 +300,18 @@
                 document.getElementById('opcion-ars').style.display = 'block';
                 document.getElementById('precio-ars').innerText = precioArs;
                 linksDestino.mp = linkMp;
+
+                // Botón Transferencia (Solo en ARS)
+                const containerArs = document.getElementById('opcion-ars');
+                if (!document.getElementById('btn-pagar-trf')) {
+                    const btnTrf = document.createElement('button');
+                    btnTrf.id = 'btn-pagar-trf';
+                    btnTrf.innerText = 'Pagar con Transferencia (Subir Comprobante)';
+                    btnTrf.style.backgroundColor = '#6c757d';
+                    btnTrf.style.marginTop = '10px';
+                    btnTrf.onclick = iniciarTransferencia;
+                    containerArs.appendChild(btnTrf);
+                }
                 hayOpcion = true;
             } else {
                 document.getElementById('opcion-ars').style.display = 'none';
@@ -249,7 +328,7 @@
             }
 
             if (!hayOpcion) {
-                mostrarError("Error de configuración: No hay opciones de pago disponibles para este código.");
+                mostrarError("Error: No hay opciones de pago disponibles para este código.");
             }
         }
 
@@ -270,7 +349,83 @@
             document.getElementById('step-1').style.display = 'block';
             document.getElementById('step-2').style.display = 'none';
             document.getElementById('error').style.display = 'none';
-            document.getElementById('codigoInput').value = "";
+            // No reseteamos codigo ni email para facilidad del usuario si se equivoco.
+        }
+
+        // ---------------- LÓGICA DE TRANSFERENCIA ----------------
+
+        function iniciarTransferencia() {
+            // Generar Código Único
+            const randomCode = Math.floor(1000 + Math.random() * 9000); // Aleatorio 4 digitos
+            const refCode = "TRF-" + randomCode; // Ej: TRF-4821
+
+            document.getElementById('ref-trf-display').innerText = refCode;
+            document.getElementById('ref-trf-display').dataset.value = refCode; // Guardamos en atributo data
+
+            // Mostrar sección
+            document.getElementById('seccion-transferencia').style.display = 'block';
+
+            // Ocultar botones principales para limpiar la vista
+            document.getElementById('opcion-ars').style.display = 'none';
+            document.getElementById('opcion-usd').style.display = 'none';
+        }
+
+        function cancelarTransferencia() {
+            document.getElementById('seccion-transferencia').style.display = 'none';
+            document.getElementById('opcion-ars').style.display = 'block'; // Volver a mostrar opciones
+            // Si hubiera opción USD, también mostrarla (chequeamos si tiene precio)
+            if (document.getElementById('precio-usd').innerText) {
+                document.getElementById('opcion-usd').style.display = 'block';
+            }
+        }
+
+        async function enviarTransferencia() {
+            const fileInput = document.getElementById('archivoComprobante');
+            const file = fileInput.files[0];
+            const refPago = document.getElementById('ref-trf-display').dataset.value;
+            const btn = document.getElementById('btn-enviar-trf');
+
+            // Reutilizamos el nombre y mail cargados en el Paso 1
+            const email = document.getElementById('emailInput').value.trim();
+            const nombre = document.getElementById('nombreInput').value.trim();
+
+            if (!file) {
+                alert("Por favor selecciona la imagen o PDF del comprobante.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Enviando...";
+
+            try {
+                // Usamos FormData para enviar archivo + datos
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("email", email);
+                formData.append("nombre", nombre);
+                formData.append("codigo_origen", codigoValidado);
+                formData.append("referencia_pago", refPago);
+                formData.append("monto", document.getElementById('precio-ars').innerText);
+
+                const response = await fetch(MAKE_TRANSFER_URL, {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (response.ok) {
+                    alert("¡Comprobante enviado con éxito! Recibirás tu confirmación en breve.");
+                    window.location.reload(); // Recarga la página completa para seguridad
+                } else {
+                    throw new Error("Error en la subida");
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("Hubo un error al enviar el comprobante. Intenta nuevamente.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Confirmar Transferencia";
+            }
         }
     </script>
 
