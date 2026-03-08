@@ -202,7 +202,7 @@
         <form id="cosmicForm">
             <!-- Campo oculto para el ticket -->
             <input type="hidden" id="ticket_usado" name="ticket_usado">
-            <input type="hidden" id="origen_id" name="origen_id">
+            <input type="hidden" id="origen_codigo" name="origen_codigo">
 
             <label>Nombre:</label><input type="text" name="nombre" required>
             <label>Apellido:</label><input type="text" name="apellido" required>
@@ -758,7 +758,7 @@
 
                 // DATA V2 (CLAVE PARA EL PROCESO)
                 ticket_usado: document.getElementById('ticket_usado').value,
-                origen_id: document.getElementById('origen_id').value,
+                origen_codigo: document.getElementById('origen_codigo').value,
 
                 id_get: id_get, // ID único para el registro
             };
@@ -871,6 +871,8 @@
         // URL DEL WEBHOOK DE VALIDACIÓN (ESCENARIO C)
         console.log("por enviar a make");
         const MAKE_VALIDATE_TICKET_URL = "https://hook.us2.make.com/s431w6wq2jp3dmbxvygj9a5a5ule6tj4";
+
+
         console.log("paso make:", this.MAKE_VALIDATE_TICKET_URL?.value);
 
 
@@ -905,10 +907,10 @@
                 console.log("Validación ticket:", data);
 
                 // VALIDACIÓN RELAJADA: Aceptamos 'valido', 'approved' (MP) o 'pendiente' (Supabase)
-                if (['valido', 'approved', 'pendiente'].includes(data.estado) || ['valido', 'approved', 'pendiente'].includes(data.status)) {
+                if (['valido', 'approved', 'aprobado', 'pendiente'].includes(data.estado) || ['valido', 'approved', 'pendiente'].includes(data.status)) {
                     // EXITO: Mostramos el formulario
                     document.getElementById('ticket_usado').value = ticket;
-                    document.getElementById('origen_id').value = data.origen_id || 'GENERAL';
+                    document.getElementById('origen_codigo').value = data.origen_codigo || 'GENERAL';
 
                     // (Opcional) Mostrar mensaje de bienvenida personalizado antes de desbloquear
                     title.innerText = "¡Bienvenida/o!";
